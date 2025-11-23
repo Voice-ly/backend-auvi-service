@@ -1,0 +1,39 @@
+name: Continous Integration
+on:
+  pull_request:
+    branches:
+      - develop
+jobs:
+  ci:
+    name: Continous Integration(Build + test)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup nodejs
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+        
+      - name: Install dependencies
+        run: npm ci
+
+#        - name: run unit Tests
+#          run: npm run test
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context:
+          push: true
+          tags: emaleal/backend-auvi:latest
+          cache-from: type=registry,ref=emaleal/backend-auvi:latest
+          cache-to: type=inline
