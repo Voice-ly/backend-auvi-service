@@ -12,7 +12,6 @@ const io = new Server({
   }
 });
 
-
 const port = Number(process.env.PORT);
 
 io.listen(port);
@@ -32,6 +31,7 @@ io.on("connection", (socket) => {
 
   socket.on("register", (username) => {
     peers[socket.id].username = username;
+    peers[socket.id].isVideoEnabled = false; // Default to false
     // Send existing peers to the new user
     socket.emit("introduction", peers);
     // Notify others
@@ -47,6 +47,9 @@ io.on("connection", (socket) => {
   });
 
   socket.on("user-toggle-video", (isEnabled) => {
+    if (peers[socket.id]) {
+      peers[socket.id].isVideoEnabled = isEnabled;
+    }
     socket.broadcast.emit("user-toggled-video", { id: socket.id, isEnabled });
   });
 
