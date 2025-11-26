@@ -1,4 +1,4 @@
-import { Server} from "socket.io";
+import { Server } from "socket.io";
 import "dotenv/config";
 
 const origins = (process.env.ORIGIN ?? "")
@@ -23,8 +23,6 @@ let peers: any = {};
 io.on("connection", (socket) => {
   if (!peers[socket.id]) {
     peers[socket.id] = {};
-    socket.emit("introduction", Object.keys(peers));
-    io.emit("newUserConnected", socket.id);
     console.log(
       "Peer joined with ID",
       socket.id,
@@ -32,12 +30,24 @@ io.on("connection", (socket) => {
     );
   }
 
+  socket.on("register", (username) => {
+    peers[socket.id].username = username;
+    // Send existing peers to the new user
+    socket.emit("introduction", peers);
+    // Notify others
+    socket.broadcast.emit("newUserConnected", { id: socket.id, username: username });
+  });
+
   socket.on("signal", (to, from, data) => {
     if (to in peers) {
       io.to(to).emit("signal", to, from, data);
     } else {
       console.log("Peer not found!");
     }
+  });
+
+  socket.on("user-toggle-video", (isEnabled) => {
+    socket.broadcast.emit("user-toggled-video", { id: socket.id, isEnabled });
   });
 
   socket.on("disconnect", () => {
