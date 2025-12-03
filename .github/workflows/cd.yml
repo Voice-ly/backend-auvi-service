@@ -1,0 +1,14 @@
+name: Continuous Deployment
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger automatic render
+        run: |
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"

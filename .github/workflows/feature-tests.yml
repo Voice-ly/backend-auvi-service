@@ -1,0 +1,26 @@
+name: Feature Tests
+
+on:
+  push:
+    branches:
+      - 'feature/**'
+
+jobs:
+  test:
+    name: Run unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup nodejs
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+#      - name: Run unit Tests
+#        run: npm run test
