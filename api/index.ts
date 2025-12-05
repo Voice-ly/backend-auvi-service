@@ -1,25 +1,65 @@
 import { Server } from "socket.io";
 import "dotenv/config";
 
+/**
+ * Allowed CORS origins.
+ * Obtained from the ORIGIN environment variable as a comma-separated list.
+ *
+ * @constant {string[]}
+ */
 const origins = (process.env.ORIGIN ?? "")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
 
+/**
+ * Socket.io server instance configured with CORS.
+ *
+ * @type {Server}
+ */
 const io = new Server({
     cors: {
         origin: origins,
     },
 });
 
+/**
+ * Port where the signaling server will listen.
+ *
+ * @constant {number}
+ */
 const port = Number(process.env.PORT);
 
 io.listen(port);
 console.log(`Server is running on port ${port}`);
 
-// Store peers by room: { roomId: { socketId: { username, isVideoEnabled } } }
+/**
+ * @typedef {Object} Peer
+ * @property {string} username - Username of the connected peer.
+ * @property {boolean} isVideoEnabled - Whether the user's video is enabled.
+ */
+
+/**
+ * @typedef {Object.<string, Peer>} RoomPeers
+ */
+
+/**
+ * @typedef {Object.<string, RoomPeers>} Rooms
+ */
+
+/**
+ * Stores all active rooms with their peer information.
+ *
+ * @type {Rooms}
+ */
 let rooms: Record<string, Record<string, any>> = {};
 
+/**
+ * Event fired when a new client connects.
+ *
+ * @listens connection
+ * @param {import("socket.io").Socket} socket - Connected client socket.
+ */
 io.on("connection", (socket) => {
     console.log(
         "Peer joined with ID",
@@ -27,7 +67,23 @@ io.on("connection", (socket) => {
         ". There are " + io.engine.clientsCount + " peer(s) connected."
     );
 
+    /**
+     * Keeps track of the room the user is currently in.
+     *
+     * @type {string | null}
+     */
     let currentRoom: string | null = null;
+
+    /**
+     * Registers a new peer in a room.
+     *
+     * @event register
+     * @param {string} username - The peer's username.
+     * @param {string} [roomId="default"] - Optional room ID.
+     *
+     * @fires introduction - Sends the list of peers currently in the room.
+     * @fires newUserConnected - Notifies peers that a new user joined.
+     */
 
     socket.on("register", (username: string, roomId?: string) => {
         // Support both old (username only) and new (username, roomId) formats
@@ -62,6 +118,17 @@ io.on("connection", (socket) => {
         });
     });
 
+    /**
+     * Handles WebRTC signaling messages.
+     *
+     * @event signal
+     * @param {string} to - Destination peer ID.
+     * @param {string} from - Sender peer ID.
+     * @param {*} data - The signal payload (SDP / ICE).
+     *
+     * @fires signal - Forwards the signal to another peer.
+     */
+
     socket.on("signal", (to: string, from: string, data: any) => {
         if (currentRoom && rooms[currentRoom]?.[to]) {
             io.to(to).emit("signal", to, from, data);
@@ -70,6 +137,14 @@ io.on("connection", (socket) => {
         }
     });
 
+    /**
+     * Toggles the camera status for the current user.
+     *
+     * @event user-toggle-video
+     * @param {boolean} isEnabled - Whether the camera should be enabled.
+     *
+     * @fires user-toggled-video - Broadcasts the updated video state.
+     */
     socket.on("user-toggle-video", (isEnabled: boolean) => {
         if (currentRoom && rooms[currentRoom]?.[socket.id]) {
             rooms[currentRoom][socket.id].isVideoEnabled = isEnabled;
@@ -81,6 +156,13 @@ io.on("connection", (socket) => {
         }
     });
 
+    /**
+     * Handles client disconnection.
+     *
+     * @event disconnect
+     *
+     * @fires userDisconnected - Notifies peers that the user left the room.
+     */
     socket.on("disconnect", () => {
         if (currentRoom && rooms[currentRoom]) {
             delete rooms[currentRoom][socket.id];
